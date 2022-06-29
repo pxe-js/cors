@@ -1,6 +1,6 @@
 {
     "name": "@pxe/cors",
-    "version": "1.0.0-alpha.1",
+    "version": "1.0.0-alpha.3",
     "description": "CORS middleware",
     "main": "index.js",
     "author": "reve-node",
@@ -9,13 +9,11 @@
         "@types/node": "^18.0.0",
         "esbuild": "^0.14.47",
         "ts-node": "^10.8.1",
-        "typescript": "^4.7.4"
+        "typescript": "^4.7.4",
+        "@pxe/server": "^1.0.5-alpha.4"
     },
     "exports": {
         ".": "./index.js"
     },
-    "types": "./types/index.d.ts",
-    "dependencies": {
-        "@pxe/server": "^1.0.5-alpha.4"
-    }
+    "types": "./types/index.d.ts"
 }
