@@ -8,12 +8,19 @@ declare namespace CORS {
      */
     export interface Options {
         allowOrigins?: string | string[];
-        allowMethods?: string[];
-        exposeHeaders?: string[];
+        allowMethods?: string | Server.RequestMethod[];
+        exposeHeaders?: string | string[];
         maxAge?: number;
         allowCredentials?: boolean;
-        allowHeaders?: string[];
+        allowHeaders?: string | string[];
     }
+}
+
+function setHeader(headers: Record<string, string>, header: string, value: string | string[]) {
+    if (!Array.isArray(value))
+        value = [value];
+
+    headers[header] = value.join(", ");
 }
 
 class CORS extends Function {
@@ -22,7 +29,15 @@ class CORS extends Function {
     constructor(options?: CORS.Options) {
         super();
 
-        this.options = options ?? {};
+        // Set to default value if no specified
+        if (!options)
+            options = {};
+        if (!options.allowMethods)
+            options.allowMethods = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        if (!options.allowOrigins)
+            options.allowOrigins = "*";
+
+        this.options = options;
 
         return new Proxy(this, {
             apply(target, thisArg, argArray) {
@@ -33,21 +48,19 @@ class CORS extends Function {
 
     async invoke(ctx: Server.Context, next: Server.NextFunction, ...args: any[]) {
         // Headers 
-        const headers = {
-            "Access-Control-Allow-Methods": this.options.allowMethods?.join(", ") ?? "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-        };
+        const headers = {};
+
         if (this.options.maxAge)
             headers["Access-Control-Max-Age"] = this.options.maxAge;
         if (this.options.allowCredentials)
             headers["Access-Control-Allow-Credentials"] = "true";
-        if (this.options.allowHeaders)
-            headers["Access-Control-Allow-Headers"] = this.options.allowHeaders.join(", ");
-        if (this.options.exposeHeaders)
-            headers["Access-Control-Expose-Headers"] = this.options.exposeHeaders.join(", ");
 
-        // Origin
-        if (!this.options.allowOrigins)
-            this.options.allowOrigins = "*";
+        if (this.options.allowHeaders)
+            setHeader(headers, "Access-Control-Allow-Headers", this.options.allowHeaders);
+        if (this.options.exposeHeaders)
+            setHeader(headers, "Access-Control-Expose-Headers", this.options.exposeHeaders);
+        if (this.options.allowMethods)
+            setHeader(headers, "Access-Control-Allow-Methods", this.options.allowMethods);
 
         // Set the header value
         let value: string;
@@ -63,7 +76,6 @@ class CORS extends Function {
         if (value !== "*")
             headers["Vary"] = "Origin";
 
-        // Set the header
         headers["Access-Control-Allow-Origin"] = value;
 
         // Set headers and continue
