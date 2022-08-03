@@ -14,17 +14,39 @@ declare namespace CORS {
         allowCredentials?: boolean;
         allowHeaders?: string | string[];
     }
+
+    export interface Headers extends Record<string, string | number | readonly string[]> { }
 }
 
-function setHeader(headers: Record<string, string>, header: string, value: string | string[]) {
+function setHeader(headers: CORS.Headers, header: string, value: string | string[]) {
     if (!Array.isArray(value))
         value = [value];
 
     headers[header] = value.join(", ");
 }
 
+function parse(options: CORS.Options) {
+    // Headers 
+    const headers: CORS.Headers = {};
+
+    if (options.maxAge)
+        headers["Access-Control-Max-Age"] = options.maxAge;
+    if (options.allowCredentials)
+        headers["Access-Control-Allow-Credentials"] = "true";
+
+    if (options.allowHeaders)
+        setHeader(headers, "Access-Control-Allow-Headers", options.allowHeaders);
+    if (options.exposeHeaders)
+        setHeader(headers, "Access-Control-Expose-Headers", options.exposeHeaders);
+    if (options.allowMethods)
+        setHeader(headers, "Access-Control-Allow-Methods", options.allowMethods);
+
+    return headers;
+}
+
 class CORS extends Function {
-    private readonly options: CORS.Options;
+    private readonly headers: CORS.Headers;
+    private readonly allowOrigins: string | string[];
 
     constructor(options?: CORS.Options) {
         super();
@@ -37,7 +59,8 @@ class CORS extends Function {
         if (!options.allowOrigins)
             options.allowOrigins = "*";
 
-        this.options = options;
+        this.headers = parse(options);
+        this.allowOrigins = options.allowOrigins;
 
         return new Proxy(this, {
             apply(target, thisArg, argArray) {
@@ -47,39 +70,27 @@ class CORS extends Function {
     }
 
     async invoke(ctx: Server.Context, next: Server.NextFunction, ...args: any[]) {
-        // Headers 
-        const headers = {};
-
-        if (this.options.maxAge)
-            headers["Access-Control-Max-Age"] = this.options.maxAge;
-        if (this.options.allowCredentials)
-            headers["Access-Control-Allow-Credentials"] = "true";
-
-        if (this.options.allowHeaders)
-            setHeader(headers, "Access-Control-Allow-Headers", this.options.allowHeaders);
-        if (this.options.exposeHeaders)
-            setHeader(headers, "Access-Control-Expose-Headers", this.options.exposeHeaders);
-        if (this.options.allowMethods)
-            setHeader(headers, "Access-Control-Allow-Methods", this.options.allowMethods);
+        const requestOrigin = ctx.request.headers.origin;
+        const currentHeaders = this.headers;
 
         // Set the header value
         let value: string;
         if (
-            Array.isArray(this.options.allowOrigins)
-            && this.options.allowOrigins.includes(ctx.headers().origin)
+            Array.isArray(this.allowOrigins)
+            && this.allowOrigins.includes(requestOrigin)
         )
-            value = ctx.headers().origin;
+            value = requestOrigin;
         else
-            value = this.options.allowOrigins as string;
+            value = this.allowOrigins as string;
 
         // If value is not all origin
         if (value !== "*")
-            headers["Vary"] = "Origin";
+            currentHeaders["Vary"] = "Origin";
 
-        headers["Access-Control-Allow-Origin"] = value;
+        currentHeaders["Access-Control-Allow-Origin"] = value;
 
         // Set headers and continue
-        Object.assign(ctx.response.headers, headers);
+        Object.assign(ctx.response.headers, currentHeaders);
         await next(...args);
     }
 }
