@@ -75,11 +75,13 @@ class CORS extends Function {
 
         // Set the header value
         let value: string;
-        if (
-            Array.isArray(this.allowOrigins)
-            && this.allowOrigins.includes(requestOrigin)
-        )
-            value = requestOrigin;
+        if (Array.isArray(this.allowOrigins)) {
+            if (this.allowOrigins.includes(requestOrigin))
+                value = requestOrigin;
+
+            else 
+                value = this.allowOrigins[0] || "";
+        }
         else
             value = this.allowOrigins as string;
 
